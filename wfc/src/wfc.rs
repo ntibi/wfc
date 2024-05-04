@@ -7,13 +7,13 @@ use direction::{CardinalDirection, CardinalDirectionTable, CardinalDirections};
 use grid_2d::Grid;
 use hashbrown::HashMap;
 use rand::Rng;
-use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::iter;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::ops::{Index, IndexMut};
 use std::slice;
+use std::{cmp::Ordering, collections::HashSet};
 
 pub type PatternId = u32;
 
@@ -196,7 +196,7 @@ impl GlobalStats {
     fn sum_pattern_weight_log_weight(&self) -> f32 {
         self.sum_pattern_weight_log_weight
     }
-    fn num_patterns(&self) -> usize {
+    pub fn num_patterns(&self) -> usize {
         self.pattern_weights.len()
     }
     fn pattern_stats(&self, pattern_id: PatternId) -> Option<&PatternWeight> {
@@ -207,7 +207,7 @@ impl GlobalStats {
             iter: self.pattern_weights.iter(),
         }
     }
-    fn compatible_patterns_in_direction(
+    pub fn compatible_patterns_in_direction(
         &self,
         pattern_id: PatternId,
         direction: CardinalDirection,
@@ -653,12 +653,25 @@ impl<'a> CellAtCoordMut<'a> {
         global_stats: &GlobalStats,
         propagator: &mut Propagator,
     ) {
+        self.remove_all_patterns_except(
+            HashSet::from([pattern_id_to_keep]),
+            global_stats,
+            propagator,
+        )
+    }
+
+    fn remove_all_patterns_except(
+        &mut self,
+        pattern_ids_to_keep: HashSet<PatternId>,
+        global_stats: &GlobalStats,
+        propagator: &mut Propagator,
+    ) {
         for (pattern_id, num_ways_to_become_pattern) in self
             .wave_cell
             .num_ways_to_become_each_pattern
             .enumerate_mut()
         {
-            if pattern_id != pattern_id_to_keep {
+            if !pattern_ids_to_keep.contains(&pattern_id) {
                 if !num_ways_to_become_pattern.is_zero() {
                     num_ways_to_become_pattern.clear_all_directions();
                     assert!(self.wave_cell.num_compatible_patterns >= 1);
@@ -755,9 +768,9 @@ impl<'a> WaveCellHandle<'a> {
             global_stats,
         }
     }
-    fn forbid_all_patterns_except(&mut self, pattern_id: PatternId) {
-        self.cell_at_coord_mut.remove_all_patterns_except_one(
-            pattern_id,
+    fn forbid_all_patterns_except(&mut self, pattern_ids: HashSet<PatternId>) {
+        self.cell_at_coord_mut.remove_all_patterns_except(
+            pattern_ids,
             self.global_stats,
             &mut self.propagator,
         );
@@ -1120,10 +1133,10 @@ impl<'a, W: Wrap> RunBorrowCore<'a, W> {
     fn forbid_all_patterns_except(
         &mut self,
         coord: Coord,
-        pattern_id: PatternId,
+        pattern_ids: HashSet<PatternId>,
     ) -> Result<(), PropagateError> {
         self.wave_cell_handle(coord)
-            .forbid_all_patterns_except(pattern_id);
+            .forbid_all_patterns_except(pattern_ids);
         self.propagate()
     }
 
@@ -1183,10 +1196,10 @@ impl<'a, 'b, W: Wrap> ForbidInterface<'a, 'b, W> {
     pub fn forbid_all_patterns_except<R: Rng>(
         &mut self,
         coord: Coord,
-        pattern_id: PatternId,
+        pattern_ids: HashSet<PatternId>,
         rng: &mut R,
     ) -> Result<(), PropagateError> {
-        let result = self.0.forbid_all_patterns_except(coord, pattern_id);
+        let result = self.0.forbid_all_patterns_except(coord, pattern_ids);
         if result.is_err() {
             self.0.reset(rng);
         }
