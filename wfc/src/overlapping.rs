@@ -150,7 +150,7 @@ impl<T: Eq + Clone + Hash> OverlappingPatterns<T> {
                 .clone()
         })
     }
-    fn compatible_patterns<'b>(
+    pub fn compatible_patterns<'b>(
         &'b self,
         pattern: &'b Pattern,
         direction: CardinalDirection,
