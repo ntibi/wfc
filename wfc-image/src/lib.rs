@@ -29,7 +29,7 @@ pub mod retry {
 }
 
 pub struct ImagePatterns {
-    overlapping_patterns: OverlappingPatterns<Rgba<u8>>,
+    pub overlapping_patterns: OverlappingPatterns<Rgba<u8>>,
     empty_colour: Rgba<u8>,
 }
 
